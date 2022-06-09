@@ -7,9 +7,10 @@ import (
 
 type CIDR4 struct {
 	ip     IP4
-	prefix int
+	prefix byte
 	low    IP4
 	high   IP4
+	count  uint32
 }
 
 func (cidr CIDR4) Contains(ip IP4) bool {
@@ -21,17 +22,18 @@ func NewCIDR4(s string) CIDR4 {
 	return CIDR4{
 		ip:     ip,
 		prefix: prefix,
-		low:    ip & ^IP4(^IP4MAX>>prefix),
-		high:   ip | IP4(IP4MAX>>prefix),
+		low:    ip & ^(^IP4MAX >> prefix),
+		high:   ip | IP4MAX>>prefix,
+		count:  1 << prefix, // 2^prefix
 	}
 }
 
-func parseCIDR(s string, separator string) (ip IP4, prefix int) {
+func parseCIDR(s string, separator string) (IP4, byte) {
 	parts := strings.SplitN(s, separator, 2)
-	ip = NewIP4(parts[0])
+	ip := NewIP4(parts[0])
 	prefix, err := strconv.Atoi(parts[1])
 	if err != nil || prefix > 32 || prefix < 0 {
 		panic("invalid prefix: " + parts[1])
 	}
-	return ip, prefix
+	return ip, byte(prefix)
 }

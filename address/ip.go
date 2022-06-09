@@ -15,8 +15,20 @@ func (ip IP4) prev() IP4 {
 	return ip - 1
 }
 
+func (ip IP4) nextReversed(mask byte) IP4 {
+	return ip + 1<<mask
+}
+
+func (ip IP4) prevReversed(mask byte) IP4 {
+	return ip - 1<<mask
+}
+
 func (ip IP4) ToNative() net.IP {
 	return net.IP{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
+}
+
+func (ip IP4) String() string {
+	return ip.ToNative().String()
 }
 
 func NewIP4(s string) IP4 {
