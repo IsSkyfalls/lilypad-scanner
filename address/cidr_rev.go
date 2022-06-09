@@ -1,6 +1,7 @@
 package address
 
 import (
+	"fmt"
 	"sync/atomic"
 )
 
@@ -26,12 +27,13 @@ func NewCIDR4Reversed(s string) CIDR4Reversed {
 }
 
 type CIDR4RevIterator struct {
-	cidr    CIDR4Reversed
-	counter uint32
+	cidr       CIDR4Reversed
+	counter    uint32
+	skipNormal []CIDR4
 }
 
-func (cidr CIDR4Reversed) Iterator() CIDR4RevIterator {
-	return CIDR4RevIterator{
+func (cidr CIDR4Reversed) Iterator() *CIDR4RevIterator {
+	return &CIDR4RevIterator{
 		cidr: cidr,
 	}
 }
@@ -41,18 +43,57 @@ func (iter *CIDR4RevIterator) Resume(counter uint32) *CIDR4RevIterator {
 	return iter
 }
 
+func (iter *CIDR4RevIterator) RegisterSkip(cidr CIDR4) *CIDR4RevIterator {
+	cpy := iter.skipNormal
+	for i, e := range cpy {
+		if e.low > cidr.low {
+			cpy = append(cpy[i:], cpy[:i+1]...)
+			cpy[i] = cidr
+			iter.skipNormal = cpy
+			return iter
+		}
+	}
+	iter.skipNormal = append(iter.skipNormal, cidr)
+	return iter
+}
+
 func (iter *CIDR4RevIterator) Next() (IP4, bool) {
 	// actually this is getThenIncrement, so we can cover 0 to max
 	for {
 		this := atomic.LoadUint32(&iter.counter)
 		next := this + 1
-		if next > iter.cidr.count || next == 0 {
+		if next > iter.cidr.count || next < this {
 			return 0, false
 		}
+		ip := iter.cidr.GetNthAddr(this)
+		// skip
+		for {
+			if skipCount, needed := iter.calcSkip(ip); needed {
+				fmt.Println("skip addresses " + fmt.Sprint(skipCount))
+				next += skipCount
+				ip = iter.cidr.GetNthAddr(next)
+				fmt.Println("next: " + ip.String())
+			}
+			break
+		}
 		if atomic.CompareAndSwapUint32(&iter.counter, this, next) {
-			return iter.cidr.GetNthAddr(this), true
+			return ip, true
 		}
 	}
+}
+
+func (iter *CIDR4RevIterator) calcSkip(addr IP4) (uint32, bool) {
+	for _, cidr := range iter.skipNormal {
+		if cidr.Contains(addr) {
+			if iter.cidr.prefix+cidr.prefix > 32 {
+				return 1, true
+			} else {
+				skip := 1 << (32 - cidr.prefix - iter.cidr.prefix)
+				return uint32(skip), true
+			}
+		}
+	}
+	return 0, false
 }
 
 func (iter *CIDR4RevIterator) Current() IP4 {

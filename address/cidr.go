@@ -24,7 +24,7 @@ func NewCIDR4(s string) CIDR4 {
 		prefix: prefix,
 		low:    ip & ^(^IP4MAX >> prefix),
 		high:   ip | IP4MAX>>prefix,
-		count:  1 << prefix, // 2^prefix
+		count:  1 << (32 - prefix), // 2^prefix
 	}
 }
 
