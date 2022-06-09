@@ -1,4 +1,4 @@
-package address
+package addr
 
 import (
 	"fmt"
@@ -36,6 +36,13 @@ func (cidr CIDR4Reversed) Iterator() *CIDR4RevIterator {
 	return &CIDR4RevIterator{
 		cidr: cidr,
 	}
+}
+
+func (iter CIDR4RevIterator) CountTotal() uint32 {
+	return iter.cidr.count
+}
+func (iter CIDR4RevIterator) Counter() uint32 {
+	return iter.counter
 }
 
 func (iter *CIDR4RevIterator) Resume(counter uint32) *CIDR4RevIterator {

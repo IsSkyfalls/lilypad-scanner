@@ -1,4 +1,4 @@
-package address
+package addr
 
 import (
 	"encoding/binary"

@@ -1,4 +1,4 @@
-package address
+package addr
 
 import (
 	"github.com/stretchr/testify/assert"
