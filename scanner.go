@@ -104,7 +104,7 @@ func mainOutput(iter *addr.CIDR4RevIterator, responded *int, matched *int) {
 		fmt.Printf("Responded: %d Matched: %d\n", *responded, *matched)
 		progress := float64(iter.Counter()) / float64(iter.CountTotal())
 		elapsed := time.Now().Sub(t)
-		fmt.Printf("Progress: %.2f%% | ETA: %s\n", progress*100, time.Duration(float64(elapsed.Nanoseconds())/progress))
+		fmt.Printf("Progress: %.2f%% | ETA: %s\n", progress*100, time.Duration(float64(elapsed.Nanoseconds())/progress*(1-progress)))
 		fmt.Printf("Time Elapsed: %s", elapsed)
 		_ = <-tick.C
 	}
