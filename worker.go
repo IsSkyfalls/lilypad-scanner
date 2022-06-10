@@ -18,7 +18,7 @@ type ScanResult struct {
 //go:embed c2sconnect
 var c2s_connect []byte
 
-func worker(id int, iter *addr.CIDR4RevIterator, result chan ScanResult) {
+func worker(id int, iter *addr.CIDR4RevIterator, result chan ScanResult, verbose bool) {
 	for {
 		next, ok := iter.Next()
 		if !ok {
@@ -27,7 +27,9 @@ func worker(id int, iter *addr.CIDR4RevIterator, result chan ScanResult) {
 		ip := next.ToNative()
 		conn, err := net.DialTimeout("tcp", ip.String()+":"+"25565", time.Second*10)
 		if err != nil {
-			//log.Debug().Logf("[%d] connection failed: %s", id, err)
+			if verbose {
+				log.Debug().Logf("[%d] connection failed: %s", id, err)
+			}
 			continue
 		}
 		_, err = conn.Write(c2s_connect)

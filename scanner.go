@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"lilypad-scanner/addr"
 	"lilypad-scanner/log"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -12,8 +14,17 @@ import (
 )
 
 func main() {
-	cidr := addr.NewCIDR4Reversed("0.0.0.205|8")
-	iter := cidr.Iterator().
+	cidrStr := flag.String("cidr", "0.0.0.205|8", "specify the cidr range, only reversed format is supported(0.0.0.255|8)")
+	resume := flag.Uint("resume", 0, "resume pointer, last current value minus total worker count")
+	workers := flag.Int("workers", 8000, "worker count")
+	verbose := flag.Bool("verbose", false, "chatty mode")
+
+	flag.Parse()
+
+	fmt.Printf("Launched with cidr_rev: %s, resume: %d. workers: %d, verbose: %t\n", *cidrStr, *resume, *workers, *verbose)
+
+	cidr := addr.NewCIDR4Reversed(*cidrStr)
+	iter := cidr.Iterator().Resume(uint32(*resume)).
 		RegisterSkip(addr.NewCIDR4("0.0.0.0/8")).
 		RegisterSkip(addr.NewCIDR4("10.0.0.0/8")).
 		RegisterSkip(addr.NewCIDR4("100.64.0.0/10")).
@@ -35,20 +46,38 @@ func main() {
 	matched := 0
 	go resultConsumer(results, &responded, &matched)
 	go mainOutput(iter, &responded, &matched)
+	go keepProgress(iter)
 
 	block := make(chan bool)
 	wg := sync.WaitGroup{}
-	for i := 0; i < 8000; i++ {
+	for i := 0; i < *workers; i++ {
 		go func(id int) {
 			wg.Add(1)
 			<-block
-			worker(id, iter, results)
+			worker(id, iter, results, *verbose)
 			wg.Done()
 		}(i)
 	}
 	close(block)
 	wg.Wait()
 	time.Sleep(time.Second * 10)
+}
+
+func keepProgress(iter *addr.CIDR4RevIterator) {
+	tick := time.NewTicker(time.Second * 10)
+	for {
+		f, err := os.OpenFile("progress.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_SYNC, 0777)
+		if err != nil {
+			panic("failed to open progress.log: " + err.Error())
+		}
+		current := iter.Counter()
+		_, err = f.WriteString(fmt.Sprint(current))
+		if err != nil {
+			panic("failed to write progress.log: " + err.Error())
+		}
+		_ = f.Close()
+		<-tick.C
+	}
 }
 
 func resultConsumer(c chan ScanResult, responded *int, matched *int) {
