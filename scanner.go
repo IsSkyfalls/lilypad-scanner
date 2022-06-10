@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"lilypad-scanner/addr"
 	"lilypad-scanner/log"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +28,8 @@ func main() {
 		RegisterSkip(addr.NewCIDR4("224.0.0.0/4")).
 		RegisterSkip(addr.NewCIDR4("240.0.0.0/4"))
 
+	runtime.GOMAXPROCS(runtime.NumCPU() - 1)
+
 	results := make(chan ScanResult, 10)
 	responded := 0
 	matched := 0
@@ -34,7 +38,7 @@ func main() {
 
 	block := make(chan bool)
 	wg := sync.WaitGroup{}
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 8000; i++ {
 		go func(id int) {
 			wg.Add(1)
 			<-block
@@ -44,13 +48,14 @@ func main() {
 	}
 	close(block)
 	wg.Wait()
+	time.Sleep(time.Second * 10)
 }
 
 func resultConsumer(c chan ScanResult, responded *int, matched *int) {
 	for {
 		result := <-c
 		*responded++
-		log.Info().Logf("Server %s responded with: %s", result.ip, result.response)
+		log.Info().Logf("Server %s responded with: %s", result.ip, strconv.QuoteToASCII(result.response))
 
 		if strings.Contains(result.response, "client") {
 			log.Info().Log("THIS MIGHT BE A MATCH")
@@ -64,12 +69,13 @@ func mainOutput(iter *addr.CIDR4RevIterator, responded *int, matched *int) {
 	t := time.Now()
 	for {
 		clear()
-		fmt.Println("Skyfalls' Low Performance Single-threaded Lilypad Scanner")
+		fmt.Println("Skyfalls' Low Performance Single-threaded Server Scanner(TM)")
 		fmt.Printf("Total ips: %d\n", iter.CountTotal())
 		fmt.Printf("Current: %d - %s\n", iter.Counter(), iter.Current())
+		fmt.Printf("Responded: %d Matched: %d\n", *responded, *matched)
 		progress := float64(iter.Counter()) / float64(iter.CountTotal())
 		elapsed := time.Now().Sub(t)
-		fmt.Printf("Progress: %.2f%% | ETA: %s", progress*100, time.Duration(elapsed.Seconds()/progress))
+		fmt.Printf("Progress: %.2f%% | ETA: %s\n", progress*100, time.Duration(float64(elapsed.Nanoseconds())/progress))
 		fmt.Printf("Time Elapsed: %s", elapsed)
 		_ = <-tick.C
 	}

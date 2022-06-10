@@ -27,14 +27,16 @@ func worker(id int, iter *addr.CIDR4RevIterator, result chan ScanResult) {
 		ip := next.ToNative()
 		conn, err := net.DialTimeout("tcp", ip.String()+":"+"25565", time.Second*10)
 		if err != nil {
-			log.Debug().Logf("[%d] connection failed: %s", id, err)
+			//log.Debug().Logf("[%d] connection failed: %s", id, err)
+			continue
 		}
 		_, err = conn.Write(c2s_connect)
 		if err != nil {
 			log.Debug().Logf("[%d] failed to write %s: %s", id, ip, err)
 		}
-		limit := io.LimitReader(conn, 1024)
+		limit := io.LimitReader(conn, 256)
 		read, err := ioutil.ReadAll(limit)
+		_ = conn.Close()
 		if err != nil {
 			log.Debug().Logf("[%d] failed to read from %s: %s", id, ip, err)
 		}
